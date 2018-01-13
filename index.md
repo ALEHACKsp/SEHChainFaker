@@ -1,5 +1,3 @@
-###### Warning! This code is not perfect and has its imperfections. It is meant to be shown as a PoC, not a fully working bypass.
-
 ***
 
 **Code**
