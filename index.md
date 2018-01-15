@@ -16,17 +16,23 @@ void restoreChain(DWORD* chain, DWORD unk, DWORD unk1)
 }
 ```
 
-*Alternative Styling*
+*Alternative Styling* (if you like ugly macros)
 
 ```cpp
 #define fakeExceptionChain(f)   [&]() { \
                     DWORD* __exceptionChain = (DWORD*)__readfsdword(0);                                 \
-                    DWORD  __unk = __exceptionChain[1], __nextunk = ((DWORD*)__exceptionChain[0])[1];   \
-                    __exceptionChain[1] = 0x1555555;                                                    \
-                    ((DWORD*)__exceptionChain[0])[1] = 0x1555555;                                       \
+                    DWORD __unk, __nextUnk = 0;                                                         \
+                    bool __invalidReg = __exceptionChain[0] == 0xFFFFFFFF;                              \
+                    if (!__invalidReg) {                                                                \
+                        __unk = __exceptionChain[1], __nextUnk = ((DWORD*)__exceptionChain[0])[1];      \
+                        __exceptionChain[1] = 0x1555555;                                                \
+                         ((DWORD*)__exceptionChain[0])[1] = 0x1555555;                                  \
+                    }                                                                                   \
                     auto __ret = (f);                                                                   \
-                    __exceptionChain[1] = __unk;                                                        \
-                    ((DWORD*)__exceptionChain[0])[1] = __nextunk;                                       \
+                    if (!__invalidReg) {                                                                \
+                        __exceptionChain[1] = __unk;                                                    \
+                        ((DWORD*)__exceptionChain[0])[1] = __nextUnk;                                   \
+                    }                                                                                   \
                     return __ret;                                                                       \
                 }()
 ```
@@ -137,13 +143,14 @@ And then bypass the second check by doing the same thing, but with the next hand
 ((DWORD*)exceptionChain[0])[1] = 0x1555555;
 ```
 
-In theory this should bypass the checks that are currently in place. But it will bring up some problems later on. One is if we do not restore the chain, but this is an easy fix, which I demo in the exmaple below. The other is that on some systems for SOME reason there are no registerd handlers in the chain, making the original chain access throw a read access violation. I have not had any problems with it, but if you do, just do not modify any values if there is not more than one handler on the chain.
+In theory this should bypass the checks that are currently in place. But it will bring up some problems later on. One is if we do not restore the chain, but this is an easy fix, which I demo in the exmaple below. The other is that on some systems for SOME reason there is only one registered handler on the chain, making the original chain access throw a read access violation. To bypass this you can just check if there is more than one handler before trying to change anything.
 
-Now with all of our reversing out of the way, we are done. Our final bypass should look like this:0
+With all of this information we should be able to create a working bypass.
+An example implementation would look like this.
 
 ***
 
-**Example code**
+**Example implementation**
 
 ```cpp
 #define RESUME_ADDRESS 0xDEADBEEF
@@ -151,10 +158,18 @@ Now with all of our reversing out of the way, we are done. Our final bypass shou
 int rlua_resume(int rL, int nargs)
 {
 	DWORD* exceptionChain = (DWORD*)__readfsdword(0);
-	DWORD unk = exceptionChain[1], unk1 = ((DWORD*)exceptionChain[0])[1];
-	fakeChain(exceptionChain);
-	int ret = ((int(__cdecl*)(int, int))RESUME_ADDRESS)(rL, nargs);
-	restoreChain(exceptionChain, unk, unk1);
+	int ret = 0, validNextReg = exceptionChain[0] != 0xFFFFFFFF;
+	DWORD unk = 0, nextUnk = 0;
+
+	if (validNextReg) {
+		unk = exceptionChain[1], nextUnk = ((DWORD*)exceptionChain[0])[1];
+		fakeChain(exceptionChain);
+	}
+
+	ret = ((int(__cdecl*)(int, int))RESUME_ADDRESS)(rL, nargs);
+
+	if (validNextReg)
+		restoreChain(exceptionChain, unk, nextUnk);
 
 	return ret;
 }
