@@ -137,9 +137,9 @@ And then bypass the second check by doing the same thing, but with the next hand
 ((DWORD*)exceptionChain[0])[1] = 0x1555555;
 ```
 
-In theory this should bypass the checks that are currently in place. But it will bring up some problems later on. One is if we do not restore the chain, but this is an easy fix, which I demo in the exmaple below. The other is that on some systems for SOME reason there are no registerd handlers in the chain, making the original chain access throw a read access violation. While I do know one way to get around this, I am going to leave it up to you to see if you can figure out what is going on and how to fix it.
+In theory this should bypass the checks that are currently in place. But it will bring up some problems later on. One is if we do not restore the chain, but this is an easy fix, which I demo in the exmaple below. The other is that on some systems for SOME reason there are no registerd handlers in the chain, making the original chain access throw a read access violation. I have not had any problems with it, but if you do, just do not modify any values if there is not more than one handler on the chain.
 
-Now with all of our reversing out of the way, we are done. Our final bypass should look like this.
+Now with all of our reversing out of the way, we are done. Our final bypass should look like this:0
 
 ***
 
