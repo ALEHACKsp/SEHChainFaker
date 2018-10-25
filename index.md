@@ -162,7 +162,7 @@ int rlua_resume(int rL, int nargs)
 
 *Alternative styling*
 
-```
+```cpp
 int rlua_resume(int rL, int nargs)
 {
 	return fakeExceptionChain(
